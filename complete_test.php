@@ -1,4 +1,9 @@
 <?php
+/**
+ * Complete Payment Gateway API Test Script
+ * Tests all major API endpoints: Order Creation, Payment Processing, Status Check, and Order Details
+ */
+
 echo "\n====================================\n";
 echo "🧪 PAYMENT GATEWAY API TEST\n";
 echo "====================================\n\n";

@@ -38,6 +38,6 @@ echo "📌 Payment Methods: " . implode(', ', json_decode($client->payment_metho
 echo "📌 Active: " . ($client->is_active ? 'Yes' : 'No') . "\n";
 echo "📌 Created At: " . $client->created_at . "\n";
 echo "\n=================================\n";
-echo "💾 اب یہ API Key استعمال کریں!\n";
+echo "💾 Use this API Key for testing!\n";
 echo "=================================\n\n";
 ?>

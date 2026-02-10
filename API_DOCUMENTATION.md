@@ -1,12 +1,12 @@
 # Payment Gateway API Documentation
 
-## خرح (Overview)
+## Overview
 
-یہ API ایک مکمل **Payment Gateway** فراہم کرتا ہے جو:
-- Orders بناتا ہے
-- متعدد Payment Methods کو سپورٹ کرتا ہے
-- Real-time Webhooks چلاتا ہے
-- Transactions کو ٹریک کرتا ہے
+This API provides a complete **Payment Gateway** that:
+- Creates Orders
+- Supports Multiple Payment Methods
+- Runs Real-time Webhooks
+- Tracks Transactions
 
 ---
 
@@ -15,18 +15,18 @@
 ### 1. **Payment Methods**
 - Stripe
 - PayPal
-- Mobile Wallet (معاوضے)
+- Mobile Wallet
 - Bank Transfer
 - Credit/Debit Card
 
 ### 2. **Multi-Website Integration**
-- ہر website کو API Key ملتی ہے
-- اپنے orders اور transactions الگ سے ٹریک کریں
-- Webhooks کے ذریعے تنبیہ ملے
+- Each website gets an API Key
+- Track their own orders and transactions separately
+- Receive notifications via Webhooks
 
 ### 3. **WebHooks Support**
-- Order create ہوتا ہے
-- Payment success/failed ہوتی ہے
+- When order is created
+- When payment succeeds/fails
 - Real-time notifications
 
 ---
@@ -36,11 +36,11 @@
 ### 🔷 `api_clients` Table
 ```
 - id (PK)
-- name (website کا نام)
-- api_key (منفرد)
-- api_secret (منفرد)
+- name (website name)
+- api_key (unique)
+- api_secret (unique)
 - website_url
-- webhook_url (callbacks کے لیے)
+- webhook_url (for callbacks)
 - allowed_ips
 - is_active
 - payment_methods (JSON array)
@@ -53,11 +53,11 @@
 ```
 - id (PK)
 - api_client_id (FK)
-- order_number (منفرد)
+- order_number (unique)
 - customer_email
 - customer_name
 - total_amount (decimal)
-- currency (USD, PKR وغیرہ)
+- currency (USD, PKR, etc.)
 - status (pending, paid, failed, cancelled)
 - description
 - metadata (JSON)
@@ -71,7 +71,7 @@
 - id (PK)
 - order_id (FK)
 - api_client_id (FK)
-- transaction_id (منفرد)
+- transaction_id (unique)
 - amount
 - currency
 - payment_method (card, paypal, mobile_wallet, bank_transfer, stripe)

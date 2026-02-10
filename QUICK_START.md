@@ -33,9 +33,9 @@ echo "API Key: " . $client->api_key;
 
 ## Testing
 
-### بہترین طریقہ - Postman یا Insomnia استعمال کریں
+### Best Method - Use Postman or Insomnia
 
-#### 1️⃣ Order بنائیں
+#### 1️⃣ Create Order
 ```
 POST http://localhost:8000/api/orders/create
 
@@ -63,7 +63,7 @@ POST http://localhost:8000/api/orders/create
 
 ---
 
-#### 2️⃣ Payment Process کریں
+#### 2️⃣ Process Payment
 ```
 POST http://localhost:8000/api/payment/process
 
@@ -88,7 +88,7 @@ POST http://localhost:8000/api/payment/process
 
 ---
 
-#### 3️⃣ Payment Status Check کریں
+#### 3️⃣ Check Payment Status
 ```
 GET http://localhost:8000/api/payment/status/TXN_550e8400-e29b-41d4-a716-446655440000
 
