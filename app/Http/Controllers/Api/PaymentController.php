@@ -17,96 +17,118 @@ class PaymentController extends Controller
      */
     public function processPayment(Request $request)
     {
-        $validated = $request->validate([
-            'api_key' => 'required|string',
-            'order_id' => 'required|integer',
-            'payment_method' => 'required|in:card,paypal,mobile_wallet,bank_transfer,stripe',
-            'amount' => 'required|numeric|min:0.01',
-            'currency' => 'nullable|string|size:3',
-            'card_token' => 'nullable|string',
-            'paypal_token' => 'nullable|string',
-        ]);
-
-        // Verify API key
-        $apiClient = ApiClient::where('api_key', $validated['api_key'])
-            ->where('is_active', true)
-            ->firstOrFail();
-
-        // Get order
-        $order = Order::find($validated['order_id']);
-        if (!$order || $order->api_client_id !== $apiClient->id) {
-            return response()->json(['error' => 'Order not found'], 404);
-        }
-
-        // Check payment method is allowed
-        if (!in_array($validated['payment_method'], $apiClient->payment_methods ?? [])) {
-            return response()->json(['error' => 'Payment method not allowed'], 400);
-        }
-
-        // Create transaction record
-        $transaction = Transaction::create([
-            'order_id' => $validated['order_id'],
-            'api_client_id' => $apiClient->id,
-            'transaction_id' => 'TXN_' . Str::uuid(),
-            'amount' => $validated['amount'],
-            'currency' => $validated['currency'] ?? 'USD',
-            'payment_method' => $validated['payment_method'],
-            'status' => 'processing',
-        ]);
-
         try {
-            // Process payment based on method
-            $result = $this->processPaymentByMethod(
-                $validated['payment_method'],
-                $transaction,
-                $validated
-            );
+            $validated = $request->validate([
+                'api_key' => 'required|string',
+                'order_id' => 'required|integer',
+                'payment_method' => 'required|in:card,paypal,mobile_wallet,bank_transfer,stripe',
+                'amount' => 'required|numeric|min:0.01',
+                'currency' => 'nullable|string|size:3',
+                'card_token' => 'nullable|string',
+                'paypal_token' => 'nullable|string',
+            ]);
 
-            if ($result['success']) {
-                // Update transaction status
-                $transaction->update([
-                    'status' => 'success',
-                    'paid_at' => now(),
-                    'response_data' => $result['data'],
-                ]);
+            // Verify API key
+            $apiClient = ApiClient::where('api_key', $validated['api_key'])
+                ->where('is_active', true)
+                ->first();
 
-                // Update order status
-                $order->update([
-                    'status' => 'paid',
-                    'paid_at' => now(),
-                ]);
+            if (!$apiClient) {
+                return response()->json(['error' => 'Invalid API key'], 401);
+            }
 
-                // Trigger webhook
-                $this->triggerWebhook($order, $transaction);
+            // Get order
+            $order = Order::find($validated['order_id']);
+            if (!$order || $order->api_client_id !== $apiClient->id) {
+                return response()->json(['error' => 'Order not found'], 404);
+            }
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment processed successfully',
-                    'transaction_id' => $transaction->transaction_id,
-                    'order_id' => $order->order_number,
-                ]);
-            } else {
+            // Check payment method is allowed
+            $paymentMethods = is_array($apiClient->payment_methods) 
+                ? $apiClient->payment_methods 
+                : json_decode($apiClient->payment_methods, true) ?? [];
+                
+            if (!in_array($validated['payment_method'], $paymentMethods)) {
+                return response()->json(['error' => 'Payment method not allowed for this client'], 400);
+            }
+
+            // Create transaction record
+            $transaction = Transaction::create([
+                'order_id' => $validated['order_id'],
+                'api_client_id' => $apiClient->id,
+                'transaction_id' => 'TXN_' . Str::uuid(),
+                'amount' => $validated['amount'],
+                'currency' => $validated['currency'] ?? 'USD',
+                'payment_method' => $validated['payment_method'],
+                'status' => 'processing',
+            ]);
+
+            try {
+                // Process payment based on method
+                $result = $this->processPaymentByMethod(
+                    $validated['payment_method'],
+                    $transaction,
+                    $validated
+                );
+
+                if ($result['success']) {
+                    // Update transaction status
+                    $transaction->update([
+                        'status' => 'success',
+                        'paid_at' => now(),
+                        'response_data' => json_encode($result['data']),
+                    ]);
+
+                    // Update order status
+                    $order->update([
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                    ]);
+
+                    // Trigger webhook
+                    $this->triggerWebhook($order, $transaction);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment processed successfully',
+                        'transaction_id' => $transaction->transaction_id,
+                        'order_id' => $order->order_number,
+                    ]);
+                } else {
+                    $transaction->update([
+                        'status' => 'failed',
+                        'error_message' => $result['message'],
+                        'response_data' => json_encode($result['data'] ?? []),
+                    ]);
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => $result['message'] ?? 'Payment failed',
+                    ], 400);
+                }
+            } catch (\Exception $e) {
                 $transaction->update([
                     'status' => 'failed',
-                    'error_message' => $result['message'],
-                    'response_data' => $result['data'],
+                    'error_message' => $e->getMessage(),
                 ]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => $result['message'],
-                ], 400);
+                    'message' => 'Payment processing error',
+                    'error' => $e->getMessage(),
+                ], 500);
             }
-        } catch (\Exception $e) {
-            $transaction->update([
-                'status' => 'failed',
-                'error_message' => $e->getMessage(),
-            ]);
-
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Payment processing failed',
-                'error' => $e->getMessage(),
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server error',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
